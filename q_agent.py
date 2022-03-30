@@ -32,7 +32,6 @@ class Memory():
 
     #     self.idx_last -= n_samples
 
-
     def collect_experience(self, experience) -> None:
         index = self.idx_last % self.size
         current_state, action, reward, next_state, done = experience
@@ -55,30 +54,48 @@ class Memory():
                 self.next_states[sample_idxs], self.dones[sample_idxs]) 
         
 
-        
-
 class Agent():
-    def __init__(self, lr, input_dims, n_actions, gamma=0.99, eps_max=1, eps_min=0.01, eps_dec=.9999995) -> None:
+    def __init__(self, lr, input_dims, n_actions, dir, name, env_name, algo,
+                 mem_size, gamma=0.99, epsilon=1, eps_min=0.01, eps_dec=.9999995) -> None:
         self.lr = lr
         self.input_dims = input_dims
         self.n_actions = n_actions
         self.action_space = list(range(n_actions))
 
+        self.dir = dir
+        self.env_name = env_name
+        self.algo = algo
+
         self.gamma = gamma
         self.eps_min = eps_min
-        self.eps_max = eps_max
-        self.eps = eps_max
+        self.epsilon = epsilon
         self.eps_dec = eps_dec
 
-        self.Q_model = QNetwork(lr=0.001, n_actions=n_actions, input_dim=input_dims)
+
+        self.memory = Memory(mem_size, input_dims)
+        self.q_net = QNetwork(lr=0.001, n_actions=self.n_actions, 
+                              input_dim=self.input_dims, 
+                              dir=self.dir, 
+                              name=f"{self.env_name}_{self.algo}_q_eval")
+        
+        self.target_net = QNetwork(lr=0.001, n_actions=self.n_actions, 
+                              input_dim=self.input_dims, 
+                              dir=self.dir, 
+                              name=f"{self.env_name}_{self.algo}_q_target")
+        self.update_target_network()
+
+
+    def update_target_network(self):
+        self.q_net.save_checkpoint()
+        self.target_net.load_checkpoint()
 
 
     def choose_action(self, state):
         if np.random.random() < self.eps:
             return  np.random.choice(self.action_space)
         else: 
-            state = T.tensor(state, dtype=T.float).to(self.Q_model.device)
-            actions = self.Q_model.forward(state)
+            state = T.tensor(state, dtype=T.float).to(self.q_net.device)
+            actions = self.q_net.forward(state)
             return T.argmax(actions).item()
 
 
@@ -87,25 +104,25 @@ class Agent():
 
 
     def learn(self, state, action, reward, next_state, done):
-        self.Q_model.optimizer.zero_grad()
+        self.q_net.optimizer.zero_grad()
         
-        states = T.tensor(state, dtype=T.float).to(self.Q_model.device)
+        states = T.tensor(state, dtype=T.float).to(self.q_net.device)
         actions = T.tensor(action)
         rewards = T.tensor(reward)
-        next_states = T.tensor(next_state, dtype=T.float).to(self.Q_model.device)
+        next_states = T.tensor(next_state, dtype=T.float).to(self.q_net.device)
         dones = T.tensor(done)
 
-        q_pred = self.Q_model.forward(states)[actions]
-        q_next = self.Q_model.forward(next_states).max()
+        q_pred = self.q_net.forward(states)[actions]
+        q_next = self.target_net.forward(next_states).max()
 
         # Filter non-terminal states
         q_next = T.logical_and(q_next, ~dones)
 
         q_target = rewards + self.gamma * q_next
 
-        loss = self.Q_model.loss(q_target, q_pred).to(self.Q_model.device)
+        loss = self.q_net.loss(q_target, q_pred).to(self.q_net.device)
         loss.backward()
-        self.Q_model.optimizer.step()
+        self.q_net.optimizer.step()
 
         self.decrease_eps()
 
@@ -126,23 +143,30 @@ if __name__ == '__main__':
     n_games = 10000
     sample_size = 32
     max_prev = ... # FIXME
+    update_steps = ... # FIXME
 
     for i in range(n_games):
         done = False
         observation = env.reset()
         observation_q = observation
         score = 0
+        i = 0
         while not done:
             action = agent.choose_action(observation)
 
             observation_, reward, done, info = env.step(action)
             memory.collect_experience(observation, action, reward, observation_, done)
-            if memory.idx_last >32:
+            if memory.idx_last > 32:
                 minibatch = memory.get_sample(sample_size=sample_size, max_prev=max_prev)
                 agent.learn(*minibatch)
+
+            if i % update_steps == 0:
+                agent.update_target_network()
+            
             # agent.learn(observation, action, reward, observation_)
 
             score += reward
+            i += 1
             observation = observation_
         scores.append(score)
         if i % 100 == 0:
