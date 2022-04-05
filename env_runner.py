@@ -1,8 +1,8 @@
-import gym
+import numpy as np
 
 class EnvironmentRunner():
-    def __init__(self, agent) -> None:
-        self.env = None
+    def __init__(self, agent, env) -> None:
+        self.env = env
         self.agent = agent
         
     def _reward(self, reward:float, done:bool):
@@ -20,16 +20,22 @@ class EnvironmentRunner():
 
             self.agent.store_transition(observation, action, reward, observation_, int(done))
             self.agent.learn()
+            
             score += reward
-
+            observation = observation_
         return score
 
-    def run(self, n_episodes:int, save:bool):
+    def run(self, n_episodes:int, save:bool, verbose: bool = True, verbosity: int = 100):
         scores = []
-        for _ in range(n_episodes):
+        for i in range(n_episodes):
             score = self._run_episode()
             scores.append(score)
-        
+
+            if verbose:
+                if i % verbosity == 0:
+                    print('episode ', i, 'score, %.2f avg score %.2f' % (score, np.mean(scores[:-100])) ,
+                      'epsilon %.2f' % self.agent.epsilon)
+
         if save:
             self.agent.save_models()
 
@@ -37,9 +43,9 @@ class EnvironmentRunner():
 
 
 class CartPoleRunner(EnvironmentRunner):
-    def __init__(self, agent) -> None:
-        super(CartPoleRunner, self).__init__(agent)
-        self.env = gym.make('CartPole-v1')
+    def __init__(self, agent, env) -> None:
+        super(CartPoleRunner, self).__init__(agent, env)
 
     def _reward(self, reward:float, done:bool):
-        return reward if not done else -reward
+        reward = reward if not done else -reward
+        return reward
