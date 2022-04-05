@@ -18,14 +18,16 @@ class EnvironmentRunner():
 
             reward = self._reward(reward, done)
 
-            self.agent.store_transition(observation, action, reward, observation_, int(done))
+            self.agent.store_transition(observation, action, reward, 
+                                        observation_, int(done))
             self.agent.learn()
             
             score += reward
             observation = observation_
         return score
 
-    def run(self, n_episodes:int, save:bool, verbose: bool = True, verbosity: int = 100):
+    def run(self, n_episodes:int, save:bool, 
+            verbose: bool = True, verbosity: int = 100):
         scores = []
         for i in range(n_episodes):
             score = self._run_episode()

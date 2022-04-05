@@ -7,7 +7,8 @@ import torch as T
 from typing import Tuple
 
 class DenseDeepQNetwork(nn.Module):
-    def __init__(self, lr: float, n_actions: int, input_dims: Tuple[int, ...], dir:str, name:str) -> None:
+    def __init__(self, lr: float, n_actions: int, input_dims: Tuple[int, ...],
+                 dir:str, name:str) -> None:
         super(DenseDeepQNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(dir, name)
@@ -34,7 +35,8 @@ class DenseDeepQNetwork(nn.Module):
         self.load_state_dict(T.load(f"{self.checkpoint_file}.pt"))
 
 class ConvDeepQNetwork(nn.Module):
-    def __init__(self, lr: float, n_actions: int, input_dims: Tuple[int, ...], dir:str, name:str) -> None:
+    def __init__(self, lr: float, n_actions: int, input_dims: Tuple[int, ...],
+                 dir:str, name:str) -> None:
         super(ConvDeepQNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(dir, name)
@@ -42,11 +44,14 @@ class ConvDeepQNetwork(nn.Module):
         in_channel = input_dims[0]
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=in_channel, out_channels=32, kernel_size=8, stride=4),
+            nn.Conv2d(in_channels=in_channel, out_channels=32, 
+                      kernel_size=8, stride=4),
             nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2),
+            nn.Conv2d(in_channels=32, out_channels=64, 
+                      kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1),
+            nn.Conv2d(in_channels=64, out_channels=64, 
+                      kernel_size=3, stride=1),
             nn.ReLU()
         )
 
